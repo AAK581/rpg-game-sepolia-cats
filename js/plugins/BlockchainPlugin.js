@@ -1,20 +1,24 @@
 (function() {
   let isInitialized = false;
 
+  // Initialize core variables early
   const _DataManager_createGameObjects = DataManager.createGameObjects;
   DataManager.createGameObjects = function() {
     _DataManager_createGameObjects.call(this);
-    if (!isInitialized) initializePlugin();
+    if (!isInitialized) initializeCore();
   };
 
-  function initializePlugin() {
+  // Attach functions on Scene_Boot start
+  const _Scene_Boot_start = Scene_Boot.prototype.start;
+  Scene_Boot.prototype.start = function() {
+    if (!isInitialized) attachFunctions();
+    _Scene_Boot_start.call(this);
+  };
+
+  function initializeCore() {
     if (!window.DataManager || !DataManager.isDatabaseLoaded() || !$gameSystem) {
       console.warn("BlockchainPlugin: Not ready, retrying...");
-      setTimeout(initializePlugin, 100);
-      return;
-    }
-    if (isInitialized) {
-      console.log("BlockchainPlugin: Already initialized.");
+      setTimeout(initializeCore, 100);
       return;
     }
     if (typeof ethers === "undefined") {
@@ -33,12 +37,16 @@
     }
     console.log("BlockchainPlugin: randomKittenVar:", $gameSystem.randomKittenVar, "Value:", $gameVariables.value($gameSystem.randomKittenVar));
     console.log("BlockchainPlugin: window.ethereum:", !!window.ethereum);
-    attachFunctions();
     isInitialized = true;
-    console.log("BlockchainPlugin: Initialized successfully.");
+    console.log("BlockchainPlugin: Core initialized.");
   }
 
   function attachFunctions() {
+    if (!isInitialized || !$gameSystem) {
+      console.warn("BlockchainPlugin: Cannot attach functions, retrying...");
+      setTimeout(attachFunctions, 100);
+      return;
+    }
     const contractAddress = "0xFee91cdC10A1663d69d6891d8b6621987aACe2EF";
     const contractABI = [
       {"type":"function","name":"getKittens","inputs":[],"outputs":[{"name":"","type":"uint256"}],"stateMutability":"view"},
@@ -154,12 +162,13 @@
         }
         const amountInWei = ethers.parseEther(ethAmount.toString());
         const tx = await contract.fundContract({ value: amountInWei });
-        $gameMessage.add("Funding...");
+        console.log("Firing...");
         await tx.wait();
-        $gameMessage.add(`Funded ${ethAmount} ETH!`);
+        $gameMessage.add("Funded ${amountInWei} ETH!");
       } catch (error) {
-        console.error("fundContract:", error);
+        console.error("Error:", error);
         $gameMessage.add(`Error: ${error.message}`);
+        return true;
       }
     };
 
