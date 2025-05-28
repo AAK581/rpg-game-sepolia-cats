@@ -5,92 +5,71 @@
     return;
   }
   window.BlockchainPluginInitialized = true;
-  
   const scriptTag = document.createElement("script");
   scriptTag.id = scriptId;
   document.head.appendChild(scriptTag);
-  let randomKittenVar = null;
+  window.BlockchainPlugin = window.BlockchainPlugin || {};
+  window.BlockchainPlugin.randomKittenVar = null;
+  window.BlockchainPlugin.pendingKittenCollections = [];
 
   window.ensureBlockchainFunctions = function() {
-    if (!$gameSystem || typeof $gameSystem.getKittens !== "function" || !$gameSystem.randomKittenVar) {
+    if (!$gameSystem || typeof $gameSystem.getKittens !== "function" || !window.BlockchainPlugin.randomKittenVar) {
       console.warn("BlockchainPlugin: Reattaching functions or resetting...");
       if ($gameSystem) {
         attachFunctions();
-        if (!$gameSystem.randomKittenVar) initializeKittenVar();
+        if (!window.BlockchainPlugin.randomKittenVar) initializeKittenVar();
       }
     }
   };
 
   function initializeKittenVar() {
-    if ($gameSystem && $gameSystem.randomKittenVar) {
-      randomKittenVar = $gameSystem.randomKittenVar;
-      console.log("BlockchainPlugin: randomKittenVar already set on $gameSystem:", randomKittenVar);
-      return randomKittenVar;
+    if (window.BlockchainPlugin.randomKittenVar) {
+      console.log("BlockchainPlugin: randomKittenVar already set:", window.BlockchainPlugin.randomKittenVar);
+      return;
     }
-    
     if (!$gameSystem || !$gameVariables) {
       console.warn("BlockchainPlugin: $gameSystem or $gameVariables not ready, skipping.");
-      return null;
+      return;
     }
-    
     do {
-      randomKittenVar = Math.floor(Math.random() * 100) + 1;
-    } while ([2, 8, 9, 12, 18, 19, 21, 22, 23, 24, 25].includes(randomKittenVar));
-    
-    // IMPORTANT: Set it directly on the $gameSystem instance
-    $gameSystem.randomKittenVar = randomKittenVar;
-    $gameVariables.setValue(randomKittenVar, 0);
-    
-    console.log("BlockchainPlugin: Set randomKittenVar:", randomKittenVar);
+      window.BlockchainPlugin.randomKittenVar = Math.floor(Math.random() * 100) + 1;
+    } while ([2, 8, 9, 12, 18, 19, 21, 22, 23, 24, 25].includes(window.BlockchainPlugin.randomKittenVar));
+    $gameSystem.randomKittenVar = window.BlockchainPlugin.randomKittenVar;
+    $gameVariables.setValue(window.BlockchainPlugin.randomKittenVar, 0);
+    console.log("BlockchainPlugin: Set randomKittenVar:", window.BlockchainPlugin.randomKittenVar);
     console.log("BlockchainPlugin: Verify $gameSystem.randomKittenVar:", $gameSystem.randomKittenVar);
-    
-    // FIXED: Process any pending kitten collections after randomKittenVar is set
-    if ($gameSystem._pendingKittenCollections > 0) {
-      console.log(`BlockchainPlugin: Processing ${$gameSystem._pendingKittenCollections} pending kitten collections`);
-      const pendingCount = $gameSystem._pendingKittenCollections;
-      $gameSystem._pendingKittenCollections = 0; // Reset before processing to avoid infinite loop
-      
-      // Process each pending collection
-      for (let i = 0; i < pendingCount; i++) {
-        setTimeout(() => {
-          if ($gameSystem.collectKitten) {
-            $gameSystem.collectKitten();
-          }
-        }, i * 10); // Small delay between each collection
-      }
-    }
-    
-    return randomKittenVar;
   }
 
-  // Extend Game_System - Make sure the property persists
+  // Extend Game_System
   const _Game_System_initialize = Game_System.prototype.initialize;
   Game_System.prototype.initialize = function() {
-    _Game_System_initialize.call(this);
-    // Initialize pending collections counter
-    this._pendingKittenCollections = 0;
     console.log("BlockchainPlugin: Game_System.initialize called");
+    _Game_System_initialize.call(this);
+    initializeKittenVar();
   };
 
-  // This is crucial - make sure randomKittenVar is saved/loaded properly
-  const _Game_System_makeEmpty = Game_System.prototype.makeEmpty;
-  Game_System.prototype.makeEmpty = function() {
-    _Game_System_makeEmpty.call(this);
-    this.randomKittenVar = null; // Initialize the property
-    this._pendingKittenCollections = 0; // Initialize pending collections
-  };
-
-  // Ensure randomKittenVar persists after loading
-  const _Game_System_onAfterLoad = Game_System.prototype.onAfterLoad;
-  Game_System.prototype.onAfterLoad = function() {
-    if (_Game_System_onAfterLoad) {
-      _Game_System_onAfterLoad.call(this);
+  // Restore in Scene_Map
+  const _Scene_Map_start = Scene_Map.prototype.start;
+  Scene_Map.prototype.start = function() {
+    _Scene_Map_start.call(this);
+    if ($gameSystem && window.BlockchainPlugin.randomKittenVar && !$gameSystem.randomKittenVar) {
+      $gameSystem.randomKittenVar = window.BlockchainPlugin.randomKittenVar;
+      console.log("BlockchainPlugin: Restored randomKittenVar in Scene_Map:", window.BlockchainPlugin.randomKittenVar);
     }
-    console.log("BlockchainPlugin: onAfterLoad called, randomKittenVar:", this.randomKittenVar);
-    if (!this.randomKittenVar) {
-      initializeKittenVar();
-    } else {
-      randomKittenVar = this.randomKittenVar;
+    console.log("BlockchainPlugin: Processing", window.BlockchainPlugin.pendingKittenCollections.length, "pending kitten collections");
+    window.BlockchainPlugin.pendingKittenCollections.forEach(() => {
+      if ($gameSystem) $gameSystem.collectKitten();
+    });
+    window.BlockchainPlugin.pendingKittenCollections = [];
+  };
+
+  // Hook Scene_Boot
+  const _Scene_Boot_create = Scene_Boot.prototype.create;
+  Scene_Boot.prototype.create = function() {
+    console.log("BlockchainPlugin: Scene_Boot.create called");
+    _Scene_Boot_create.call(this);
+    if (initializePlugin()) {
+      window.ensureBlockchainFunctions();
     }
   };
 
@@ -100,30 +79,17 @@
       setTimeout(initializePlugin, 50);
       return false;
     }
-    
-    // Initialize the kitten variable
-    const varId = initializeKittenVar();
-    if (!varId) {
+    initializeKittenVar();
+    if (!window.BlockchainPlugin.randomKittenVar) {
       console.warn("BlockchainPlugin: randomKittenVar not set, retrying...");
       setTimeout(initializePlugin, 50);
       return false;
     }
-    
     console.log("BlockchainPlugin: randomKittenVar:", $gameSystem.randomKittenVar, "Value:", $gameVariables.value($gameSystem.randomKittenVar));
     console.log("BlockchainPlugin: window.ethereum:", !!window.ethereum);
     attachFunctions();
     return true;
   }
-
-  // Hook Scene_Boot.prototype.create
-  const _Scene_Boot_create = Scene_Boot.prototype.create;
-  Scene_Boot.prototype.create = function() {
-    _Scene_Boot_create.call(this);
-    console.log("BlockchainPlugin: Scene_Boot.create called");
-    if (initializePlugin()) {
-      window.ensureBlockchainFunctions();
-    }
-  };
 
   function attachFunctions() {
     if (!$gameSystem || !$gameVariables) {
@@ -131,7 +97,6 @@
       setTimeout(attachFunctions, 50);
       return;
     }
-    
     const contractAddress = "0xFee91cdC10A1663d69d6891d8b6621987aACe2EF";
     const contractABI = [
       {"type":"function","name":"getKittens","inputs":[],"outputs":[{"name":"","type":"uint256"}],"stateMutability":"view"},
@@ -158,9 +123,7 @@
         const contract = new ethers.Contract(contractAddress, contractABI, provider);
         const kittens = await contract.getKittens({ from: userAddress });
         const kittenCount = Number(kittens);
-        if (this.randomKittenVar) {
-          console.log("getKittens: Blockchain kittens:", kittenCount, "Local:", $gameVariables.value(this.randomKittenVar));
-        }
+        console.log("getKittens: Blockchain kittens:", kittenCount, "Local:", $gameSystem.randomKittenVar ? $gameVariables.value($gameSystem.randomKittenVar) : 0);
         return kittenCount;
       } catch (error) {
         console.error("getKittens: Error:", error.message);
@@ -176,7 +139,7 @@
         $gameMessage.add("Kitten count must be 0-60.");
         return false;
       }
-      if (!this.randomKittenVar) {
+      if (!$gameSystem.randomKittenVar) {
         console.error("setKittens: randomKittenVar not set!");
         $gameMessage.add("Error: Game not initialized.");
         return false;
@@ -186,18 +149,14 @@
         const signer = await provider.getSigner();
         const userAddress = await signer.getAddress();
         console.log("setKittens: Requesting", kittens, "kittens for", userAddress);
+        const contract = new ethers.Contract(contractAddress, contractABI, signer);
         $gameMessage.add("Syncing kittens...");
-        const response = await fetch("https://rpg-game-sepolia-cats.vercel.app/api/setKittens", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kittens, userAddress })
-        });
-        const data = await response.json();
-        console.log("setKittens: Response:", data);
-        if (data.error) throw new Error(data.error);
-        if (!data.txHash) throw new Error("No transaction hash returned");
-        $gameVariables.setValue(this.randomKittenVar, kittens);
-        console.log("setKittens: Set varId", this.randomKittenVar, "to", kittens);
+        const tx = await contract.setKittens(userAddress, kittens);
+        console.log("setKittens: Transaction sent:", tx.hash);
+        await tx.wait();
+        console.log("setKittens: Transaction confirmed:", tx.hash);
+        $gameVariables.setValue($gameSystem.randomKittenVar, kittens);
+        console.log("setKittens: Set varId", $gameSystem.randomKittenVar, "to", kittens);
         return true;
       } catch (error) {
         console.error("setKittens: Error:", error.message);
@@ -210,6 +169,7 @@
       window.ensureBlockchainFunctions();
       if (!window.ethereum) {
         $gameVariables.setValue(12, 0);
+        $gameMessage.add("No wallet detected.");
         return;
       }
       try {
@@ -274,8 +234,7 @@
       setKittens: !!$gameSystem.setKittens,
       connectWallet: !!$gameSystem.connectWallet,
       fundContract: !!$gameSystem.fundContract,
-      openDApp: !!$gameSystem.openDApp,
-      randomKittenVar: $gameSystem.randomKittenVar
+      openDApp: !!$gameSystem.openDApp
     });
   }
 })();

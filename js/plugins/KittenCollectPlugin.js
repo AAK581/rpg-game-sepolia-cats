@@ -1,56 +1,46 @@
 (function() {
   const pluginName = "KittenCollectPlugin";
   if (window[pluginName]) return;
+
   window[pluginName] = true;
-  
+  let pendingCollect = false;
+
   // Hook Scene_Boot
   const _Scene_Boot_create = Scene_Boot.prototype.create;
   Scene_Boot.prototype.create = function() {
     _Scene_Boot_create.call(this);
-    // Initialize pending collections counter on game system
-    if ($gameSystem && typeof $gameSystem._pendingKittenCollections === 'undefined') {
-      $gameSystem._pendingKittenCollections = 0;
-    }
+    pendingCollect = false;
   };
-  
-  // Collect method with proper race condition handling
+
+  // Collect method
   Game_System.prototype.collectKitten = function() {
-    console.log("Collect: Checking randomKittenVar:", this.randomKittenVar);
-    console.log("Collect: $gameSystem.randomKittenVar:", $gameSystem.randomKittenVar);
-    
-    // Check both this.randomKittenVar and $gameSystem.randomKittenVar
-    const varId = this.randomKittenVar || $gameSystem.randomKittenVar;
-    
-    // FIXED: If randomKittenVar is not ready, store the collection request
-    if (!varId) {
+    console.log("Collect: Checking randomKittenVar:", window.BlockchainPlugin.randomKittenVar);
+    console.log("Collect: $gameSystem.randomKittenVar:", this.randomKittenVar);
+    if (!window.BlockchainPlugin.randomKittenVar) {
+      console.error("Collect: randomKittenVar not set!");
+      $gameMessage.add("Error: Game not initialized.");
       console.log("Collect: randomKittenVar not set, storing pending collection...");
-      
-      // Initialize pending collections counter if not exists
-      if (typeof this._pendingKittenCollections === 'undefined') {
-        this._pendingKittenCollections = 0;
-      }
-      
-      // Store the pending collection
-      this._pendingKittenCollections++;
-      console.log("Collect: Pending collections now:", this._pendingKittenCollections);
-      
-      // Try to trigger blockchain plugin initialization
-      if (window.ensureBlockchainFunctions) {
-        console.log("Collect: Calling ensureBlockchainFunctions");
-        window.ensureBlockchainFunctions();
-      } else {
-        $gameMessage.add("Error: Blockchain plugin not ready.");
-      }
+      pendingCollect = true;
+      window.BlockchainPlugin.pendingKittenCollections.push(true);
+      console.log("Collect: Pending collections now:", window.BlockchainPlugin.pendingKittenCollections.length);
+      window.ensureBlockchainFunctions();
       return;
     }
-    
-    // Normal collection logic
+    this.randomKittenVar = window.BlockchainPlugin.randomKittenVar;
+    const varId = this.randomKittenVar;
     const currentKittens = $gameVariables.value(varId) + 1;
     $gameVariables.setValue(varId, currentKittens);
     console.log("Collect: Incremented varId", varId, "to", currentKittens);
-    //$gameMessage.add(`Collected a kitten! Total: ${currentKittens}`);
+    $gameMessage.add(`Collected a kitten! Total: ${currentKittens}`);
+    pendingCollect = false;
   };
-  
-  // Remove the Scene_Map update hook as it's no longer needed
-  // The BlockchainPlugin now handles processing pending collections
+
+  // Update Scene_Map
+  const _Scene_Map_update = Scene_Map.prototype.update;
+  Scene_Map.prototype.update = function() {
+    _Scene_Map_update.call(this);
+    if (pendingCollect && $gameSystem && window.BlockchainPlugin.randomKittenVar) {
+      $gameSystem.collectKitten();
+    }
+  };
 })();
