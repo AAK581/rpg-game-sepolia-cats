@@ -1,25 +1,41 @@
 (function() {
   let isInitialized = false;
 
-  // Global fallback to ensure functions are available
+  // Global fallback to ensure functions and variables
   window.ensureBlockchainFunctions = function() {
-    if (!$gameSystem || typeof $gameSystem.getKittens === "function") return;
-    console.warn("BlockchainPlugin: Reattaching functions...");
-    attachFunctions();
+    if (!$gameSystem) return;
+    if (typeof $gameSystem.getKittens !== "function" || !$gameSystem.randomKittenVar) {
+      console.warn("BlockchainPlugin: Reattaching functions or resetting randomKittenVar...");
+      attachFunctions();
+      if (!$gameSystem.randomKittenVar) {
+        initializeKittenVar();
+      }
+    }
   };
 
-  // Initialize core variables
+  // Initialize kitten variable
+  function initializeKittenVar() {
+    let randomKittenVar;
+    do {
+      randomKittenVar = Math.floor(Math.random() * 100) + 1;
+    } while ([2, 8, 9, 12, 18, 19, 21, 22, 23, 24, 25].includes(randomKittenVar));
+    $gameSystem.randomKittenVar = randomKittenVar;
+    $gameVariables.setValue(randomKittenVar, 0);
+    console.log("BlockchainPlugin: Set randomKittenVar:", randomKittenVar);
+  }
+
+  // Hook into Game_System initialization
   const _Game_System_initialize = Game_System.prototype.initialize;
   Game_System.prototype.initialize = function() {
     _Game_System_initialize.call(this);
     if (!isInitialized) initializePlugin();
   };
 
-  // Ensure functions persist after scene changes
+  // Ensure persistence after scene changes
   const _Scene_Boot_create = Scene_Boot.prototype.create;
   Scene_Boot.prototype.create = function() {
     _Scene_Boot_create.call(this);
-    ensureBlockchainFunctions();
+    window.ensureBlockchainFunctions();
   };
 
   function initializePlugin() {
@@ -37,15 +53,7 @@
       $gameMessage.add("Error: Ethers.js failed to load.");
       return;
     }
-    if (!$gameSystem.randomKittenVar) {
-      let randomKittenVar;
-      do {
-        randomKittenVar = Math.floor(Math.random() * 100) + 1;
-      } while ([2, 8, 9, 12, 18, 19, 21, 22, 23, 24, 25].includes(randomKittenVar));
-      $gameSystem.randomKittenVar = randomKittenVar;
-      $gameVariables.setValue(randomKittenVar, 0);
-      console.log("BlockchainPlugin: Set randomKittenVar:", randomKittenVar);
-    }
+    initializeKittenVar();
     console.log("BlockchainPlugin: randomKittenVar:", $gameSystem.randomKittenVar, "Value:", $gameVariables.value($gameSystem.randomKittenVar));
     console.log("BlockchainPlugin: window.ethereum:", !!window.ethereum);
     attachFunctions();
@@ -67,14 +75,14 @@
       {"type":"function","name":"rewardUser","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
       {"type":"function","name":"owner","inputs":[],"outputs":[{"name":"","type":"address"}],"stateMutability":"view"},
       {"type":"event","name":"KittensUpdated","inputs":[{"name":"user","type":"address","indexed":true},{"name":"newValue","type":"uint256","indexed":false}],"anonymous":true},
-      {"type":"event","name":"UserRewarded","inputs":[{"name":"user","type":"address","indexed":true},{"name":"amount","type":"uint256","indexed":false}],"anonymous":false},
-      {"type":"event","name":"DonationReceived","inputs":[{"name":"donor","type":"address","indexed":true},{"name":"amount","type":"uint256","indexed":false}],"anonymous":false}
+      {"type":"event","name":"UserRewarded","inputs":[{"name":"user","type":"address","indexed":true,"name":"amount","type":"uint256"}],"anonymous":false},
+      {"type":"event","name":"DonationReceived","inputs":[{"name":"donor","type":"address","indexed":true},{"name":"fee","type":"uint256"}],"indexed":false,"anonymous":true}
     ];
 
     $gameSystem.getKittens = async function() {
-      ensureBlockchainFunctions();
+      window.ensureBlockchainFunctions();
       if (!window.ethereum) {
-        console.error("getKittens: No Web3 provider");
+        console.error("getKittens error: No Web3 provider.");
         $gameMessage.add("Please connect wallet.");
         return 0;
       }
@@ -98,7 +106,7 @@
     };
 
     $gameSystem.setKittens = async function(kittens) {
-      ensureBlockchainFunctions();
+      window.ensureBlockchainFunctions();
       if (!Number.isInteger(kittens) || kittens > 60 || kittens < 0) {
         console.error("setKittens: Invalid count:", kittens);
         $gameMessage.add("Kitten count must be 0-60.");
@@ -130,7 +138,7 @@
     };
 
     $gameSystem.connectWallet = async function() {
-      ensureBlockchainFunctions();
+      window.ensureBlockchainFunctions();
       if (!window.ethereum) {
         $gameVariables.setValue(12, 0);
         return;
@@ -156,7 +164,7 @@
     };
 
     $gameSystem.fundContract = async function(ethAmount) {
-      ensureBlockchainFunctions();
+      window.ensureBlockchainFunctions();
       if (!window.ethereum) {
         $gameMessage.add("Please connect wallet.");
         return;
@@ -188,7 +196,7 @@
     };
 
     $gameSystem.openDApp = function() {
-      ensureBlockchainFunctions();
+      window.ensureBlockchainFunctions();
       window.open("https://your-dapp.vercel.app", "_blank");
     };
 

@@ -10,5 +10,5 @@ var $plugins =
 {"name":"GALV_EventSpawnerMZ","status":true,"description":"(v.1.2) Spawn events from a specified spawn map to a desired location.","parameters":{"mId":"1"}},
 {"name":"GALV_MessageBustsMZ","status":true,"description":"(v.1.2) Displays a bust image instead of selected face image","parameters":{"bPriority":"0","bPosition":"0","bX":"0","bY":"8","xOffset":"0","fileAppend":"","mStyleBusts":"false"}},
 {"name":"Art_MultiBgs","status":true,"description":"[Version 1.00] Multiple Background Sounds","parameters":{}},
-{"name":"FootstepSound","status":true,"description":"Play footstep sounds when you walk.","parameters":{}}
+{"name":"FootstepSound","status":false,"description":"Play footstep sounds when you walk.","parameters":{}}
 ];
