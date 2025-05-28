@@ -37,8 +37,10 @@ export default async function handler(req, res) {
       wallet
     );
     console.log("setKittens API: Sending tx", { kittens, userAddress });
-    const tx = await contract.setKittens(userAddress, kittens, { gasLimit: 150000 });
-    await tx.wait();
+    const gasLimit = 150000;
+    const gasPrice = await provider.getGasPrice();
+    const tx = await contract.setKittens(userAddress, kittens, { gasLimit, gasPrice });
+    const receipt = await tx.wait();
     console.log("setKittens API: Success", { txHash: tx.hash });
     res.status(200).json({ txHash: tx.hash });
   } catch (error) {
