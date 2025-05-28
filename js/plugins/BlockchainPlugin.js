@@ -1,31 +1,47 @@
 (function() {
-  const _Scene_Boot_create = Scene_Boot.prototype.create;
-  Scene_Boot.prototype.create = function() {
-    _Scene_Boot_create.call(this);
+  // Initialize on DataManager setup
+  const _DataManager_createGameObjects = DataManager.createGameObjects;
+  DataManager.createGameObjects = function() {
+    _DataManager_createGameObjects.call(this);
     initializePlugin();
   };
 
+  // Fallback on Scene_Boot
+  const _Scene_Boot_start = Scene_Boot.prototype.start;
+  Scene_Boot.prototype.start = function() {
+    initializePlugin();
+    _Scene_Boot_start.call(this);
+  };
+
   function initializePlugin() {
+    if (!window.DataManager || !DataManager.isDatabaseLoaded()) {
+      console.warn("BlockchainPlugin: DataManager not ready, retrying...");
+      setTimeout(initializePlugin, 100);
+      return;
+    }
     if (!$gameSystem) {
-      console.error("BlockchainPlugin: $gameSystem is not initialized!");
+      console.warn("BlockchainPlugin: $gameSystem not ready, retrying...");
+      setTimeout(initializePlugin, 100);
       return;
     }
     if (typeof ethers === "undefined") {
-      console.error("BlockchainPlugin: Ethers.js is not loaded!");
-      $gameMessage.add("Error: Ethers.js failed to load. Please refresh the game.");
+      console.error("BlockchainPlugin: Ethers.js not loaded!");
+      $gameMessage.add("Error: Ethers.js failed to load. Please refresh.");
       return;
     }
-    let randomKittenVar;
-    do {
-      randomKittenVar = Math.floor(Math.random() * 100) + 1;
-    } while ([2, 8, 9, 12, 18, 19, 21, 22, 23, 24, 25].includes(randomKittenVar));
-    $gameSystem.randomKittenVar = randomKittenVar;
-    $gameVariables.setValue(randomKittenVar, 0);
-    console.log("BlockchainPlugin: Set kitten variable ID:", randomKittenVar);
-    console.log("BlockchainPlugin: Initializing...");
-    console.log("BlockchainPlugin: window.ethereum available:", !!window.ethereum);
+    if (!$gameSystem.randomKittenVar) {
+      let randomKittenVar;
+      do {
+        randomKittenVar = Math.floor(Math.random() * 100) + 1;
+      } while ([2, 8, 9, 12, 18, 19, 21, 22, 23, 24, 25].includes(randomKittenVar));
+      $gameSystem.randomKittenVar = randomKittenVar;
+      $gameVariables.setValue(randomKittenVar, 0);
+      console.log("BlockchainPlugin: Set randomKittenVar:", randomKittenVar);
+    }
+    console.log("BlockchainPlugin: randomKittenVar:", $gameSystem.randomKittenVar, "Value:", $gameVariables.value($gameSystem.randomKittenVar));
+    console.log("BlockchainPlugin: window.ethereum:", !!window.ethereum);
     attachFunctions();
-    console.log("BlockchainPlugin: Initialized successfully.");
+    console.log("BlockchainPlugin: Initialized.");
   }
 
   function attachFunctions() {
@@ -109,7 +125,6 @@
     Object.defineProperty($gameSystem, "connectWallet", {
       value: async function() {
         if (!window.ethereum) {
-          //$gameMessage.add("No Web3 provider detected. Please install MetaMask.");
           $gameVariables.setValue(12, 0);
           return;
         }
@@ -127,7 +142,7 @@
           $gameMessage.add(`Connected: ${address}`);
           $gameVariables.setValue(12, 1);
         } catch (error) {
-          console.error("connectWallet: Error:", error);
+          console.error("connectWallet:", error);
           $gameMessage.add(`Error: ${error.message}`);
           $gameVariables.setValue(12, 0);
         }
@@ -138,25 +153,33 @@
 
     Object.defineProperty($gameSystem, "setKittens", {
       value: async function(kittens) {
-        if (kittens > 60 || kittens < 0) {
-          $gameMessage.add("Kitten count must be between 0 and 60.");
-          return;
+        if (!Number.isInteger(kittens) || kittens > 60 || kittens < 0) {
+          console.error("setKittens: Invalid count:", kittens);
+          $gameMessage.add("Kitten count must be 0-60.");
+          return false;
         }
         try {
           const provider = new ethers.BrowserProvider(window.ethereum);
           const signer = await provider.getSigner();
           const userAddress = await signer.getAddress();
-          const response = await fetch("https://your-game.vercel.app/api/setKittens", {
+          console.log("setKittens: Requesting", kittens, "kittens for", userAddress);
+          $gameMessage.add("Syncing kittens...");
+          const response = await fetch("https://rpg-game-sepolia-cats.vercel.app/api/setKittens", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ kittens, userAddress })
           });
-          const { txHash, error } = await response.json();
-          if (error) throw new Error(error);
-          $gameMessage.add(`Kittens updated to ${kittens}! Tx: ${txHash}`);
+          const data = await response.json();
+          console.log("setKittens: Response:", data);
+          if (data.error) throw new Error(data.error);
+          if (!data.txHash) throw new Error("No txHash");
+          $gameVariables.setValue($gameSystem.randomKittenVar, kittens);
+          console.log("setKittens: Set varId", $gameSystem.randomKittenVar, "to", kittens);
+          return true;
         } catch (error) {
-          console.error("setKittens: Error:", error);
-          $gameMessage.add(`Error: ${error.message}`);
+          console.error("setKittens:", error);
+          $gameMessage.add(`Error syncing: ${error.message}`);
+          return false;
         }
       },
       writable: true,
@@ -166,7 +189,8 @@
     Object.defineProperty($gameSystem, "getKittens", {
       value: async function() {
         if (!window.ethereum) {
-          $gameMessage.add("No Web3 provider detected. Please connect wallet.");
+          console.error("getKittens: No Web3 provider");
+          $gameMessage.add("Please connect wallet.");
           return 0;
         }
         try {
@@ -175,10 +199,14 @@
           const userAddress = await signer.getAddress();
           const contract = new ethers.Contract(contractAddress, contractABI, provider);
           const kittens = await contract.getKittens({ from: userAddress });
-          $gameMessage.add(`Your kittens: ${kittens.toString()}`);
-          return Number(kittens);
+          const kittenCount = Number(kittens);
+          if ($gameSystem.randomKittenVar) {
+            $gameVariables.setValue($gameSystem.randomKittenVar, kittenCount);
+            console.log("getKittens: Set varId", $gameSystem.randomKittenVar, "to", kittenCount);
+          }
+          return kittenCount;
         } catch (error) {
-          console.error("getKittens: Error:", error);
+          console.error("getKittens:", error);
           $gameMessage.add(`Error: ${error.message}`);
           return 0;
         }
@@ -190,7 +218,7 @@
     Object.defineProperty($gameSystem, "fundContract", {
       value: async function(ethAmount) {
         if (!window.ethereum) {
-          $gameMessage.add("No Web3 provider detected. Please connect wallet.");
+          $gameMessage.add("Please connect wallet.");
           return;
         }
         try {
@@ -200,21 +228,21 @@
           const contract = new ethers.Contract(contractAddress, contractABI, signer);
           const network = await provider.getNetwork();
           if (network.chainId !== 534351n) {
-            $gameMessage.add("Please switch to Scroll Sepolia network.");
+            $gameMessage.add("Please switch to Scroll Sepolia.");
             return;
           }
           const currentOwner = await contract.owner();
           if (currentOwner.toLowerCase() !== userAddress.toLowerCase()) {
-            $gameMessage.add("Only the contract's owner can fund this faucet.");
+            $gameMessage.add("Only owner can fund.");
             return;
           }
           const amountInWei = ethers.parseEther(ethAmount.toString());
           const tx = await contract.fundContract({ value: amountInWei });
-          $gameMessage.add("Funding contract... Please wait.");
+          $gameMessage.add("Funding...");
           await tx.wait();
-          $gameMessage.add(`Contract funded with ${ethAmount} Scroll Sepolia ETH!`);
+          $gameMessage.add(`Funded ${ethAmount} ETH!`);
         } catch (error) {
-          console.error("fundContract: Error:", error);
+          console.error("fundContract:", error);
           $gameMessage.add(`Error: ${error.message}`);
         }
       },
@@ -222,10 +250,4 @@
       configurable: true
     });
   }
-
-  const _Scene_Map_create = Scene_Map.prototype.create;
-  Scene_Map.prototype.create = function() {
-    _Scene_Map_create.call(this);
-    attachFunctions();
-  };
 })();
