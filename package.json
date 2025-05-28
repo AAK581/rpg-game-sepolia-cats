@@ -1,15 +1,12 @@
 {
-    "name": "rpg-game-sepolia-cats",
+    "name": "rmmz-game",
     "main": "index.html",
-    "chromium-args": "--force-color-profile=srgb",
+    "chromium-args": "--force-color-profile=srgb --disable-devtools",
     "window": {
         "title": "Sepolia Cats",
         "width": 816,
         "height": 624,
         "position": "center",
         "icon": "icon/icon.png"
-    },
-    "dependencies": {
-        "ethers": "^6.13.2"
     }
 }

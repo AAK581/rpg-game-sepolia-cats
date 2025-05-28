@@ -1,21 +1,28 @@
 (function() {
-  let isInitialized = false;
+  const scriptId = "BlockchainPluginScript";
+  if (window.BlockchainPluginInitialized || document.getElementById(scriptId)) {
+    console.log("BlockchainPlugin: Skipped duplicate initialization.");
+    return;
+  }
+  window.BlockchainPluginInitialized = true;
+  const scriptTag = document.createElement("script");
+  scriptTag.id = scriptId;
+  document.head.appendChild(scriptTag);
+  let randomKittenVar = null;
 
-  // Global fallback to ensure functions and variables
   window.ensureBlockchainFunctions = function() {
-    if (!$gameSystem) return;
-    if (typeof $gameSystem.getKittens !== "function" || !$gameSystem.randomKittenVar) {
+    if (!$gameSystem || typeof $gameSystem.getKittens !== "function" || !randomKittenVar) {
       console.warn("BlockchainPlugin: Reattaching functions or resetting randomKittenVar...");
       attachFunctions();
-      if (!$gameSystem.randomKittenVar) {
-        initializeKittenVar();
-      }
+      if (!randomKittenVar) initializeKittenVar();
     }
   };
 
-  // Initialize kitten variable
   function initializeKittenVar() {
-    let randomKittenVar;
+    if (randomKittenVar) {
+      console.log("BlockchainPlugin: randomKittenVar already set:", randomKittenVar);
+      return;
+    }
     do {
       randomKittenVar = Math.floor(Math.random() * 100) + 1;
     } while ([2, 8, 9, 12, 18, 19, 21, 22, 23, 24, 25].includes(randomKittenVar));
@@ -24,14 +31,12 @@
     console.log("BlockchainPlugin: Set randomKittenVar:", randomKittenVar);
   }
 
-  // Hook into Game_System initialization
   const _Game_System_initialize = Game_System.prototype.initialize;
   Game_System.prototype.initialize = function() {
     _Game_System_initialize.call(this);
-    if (!isInitialized) initializePlugin();
+    initializePlugin();
   };
 
-  // Ensure persistence after scene changes
   const _Scene_Boot_create = Scene_Boot.prototype.create;
   Scene_Boot.prototype.create = function() {
     _Scene_Boot_create.call(this);
@@ -44,20 +49,10 @@
       setTimeout(initializePlugin, 50);
       return;
     }
-    if (isInitialized) {
-      console.log("BlockchainPlugin: Already initialized.");
-      return;
-    }
-    if (typeof ethers === "undefined") {
-      console.error("BlockchainPlugin: Ethers.js not loaded!");
-      $gameMessage.add("Error: Ethers.js failed to load.");
-      return;
-    }
     initializeKittenVar();
     console.log("BlockchainPlugin: randomKittenVar:", $gameSystem.randomKittenVar, "Value:", $gameVariables.value($gameSystem.randomKittenVar));
     console.log("BlockchainPlugin: window.ethereum:", !!window.ethereum);
     attachFunctions();
-    isInitialized = true;
     console.log("BlockchainPlugin: Initialized successfully.");
   }
 
@@ -75,14 +70,14 @@
       {"type":"function","name":"rewardUser","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
       {"type":"function","name":"owner","inputs":[],"outputs":[{"name":"","type":"address"}],"stateMutability":"view"},
       {"type":"event","name":"KittensUpdated","inputs":[{"name":"user","type":"address","indexed":true},{"name":"newValue","type":"uint256","indexed":false}],"anonymous":true},
-      {"type":"event","name":"UserRewarded","inputs":[{"name":"user","type":"address","indexed":true,"name":"amount","type":"uint256"}],"anonymous":false},
-      {"type":"event","name":"DonationReceived","inputs":[{"name":"donor","type":"address","indexed":true},{"name":"fee","type":"uint256"}],"indexed":false,"anonymous":true}
+      {"type":"event","name":"UserRewarded","inputs":[{"name":"user","type":"address","indexed":true},{"name":"amount","type":"uint256","indexed":false}],"anonymous":false},
+      {"type":"event","name":"DonationReceived","inputs":[{"name":"donor","type":"address","indexed":true},{"name":"amount","type":"uint256","indexed":false}],"anonymous":false}
     ];
 
     $gameSystem.getKittens = async function() {
       window.ensureBlockchainFunctions();
       if (!window.ethereum) {
-        console.error("getKittens error: No Web3 provider.");
+        console.error("getKittens: No Web3 provider");
         $gameMessage.add("Please connect wallet.");
         return 0;
       }
@@ -208,4 +203,11 @@
       openDApp: !!$gameSystem.openDApp
     });
   }
+  const _Sprite_TextAlign = Sprite.prototype._createTinter;
+  Sprite.prototype._createTinter = function() {
+    _Sprite_TextAlign.call(this);
+    if (this._context) {
+      this._context.textAlign = this._context.textAlign || "left";
+    }
+  };
 })();
