@@ -12,7 +12,7 @@
 
   window.ensureBlockchainFunctions = function() {
     if (!$gameSystem || typeof $gameSystem.getKittens !== "function" || !randomKittenVar) {
-      console.warn("BlockchainPlugin: Reattaching functions or resetting randomKittenVar...");
+      console.warn("BlockchainPlugin: Reattaching functions or resetting...");
       attachFunctions();
       if (!randomKittenVar && $gameSystem) initializeKittenVar();
     }
@@ -24,9 +24,10 @@
       return;
     }
     if (!$gameSystem) {
-      console.warn("BlockchainPlugin: $gameSystem not ready, skipping randomKittenVar init.");
+      console.warn("BlockchainPlugin: $gameSystem not ready, skipping.");
       return;
     }
+
     do {
       randomKittenVar = Math.floor(Math.random() * 100) + 1;
     } while ([2, 8, 9, 12, 18, 19, 21, 22, 23, 24, 25].includes(randomKittenVar));
@@ -43,7 +44,7 @@
     }
     initializeKittenVar();
     if (!randomKittenVar) {
-      console.warn("BlockchainPlugin: Failed to initialize randomKittenVar, retrying...");
+      console.warn("BlockchainPlugin: randomKittenVar not set, retrying...");
       setTimeout(initializePlugin, 50);
       return;
     }
@@ -53,8 +54,8 @@
     console.log("BlockchainPlugin: Initialized successfully.");
   }
 
-  // Delay initialization until Scene_Boot is ready
-  const _Scene_Boot_start = Scene_Boot.prototype.start;
+  // Initialize after Scene_Boot
+  const _Scene_Boot_start = Scene_Boot.start.prototype;
   Scene_Boot.prototype.start = function() {
     _Scene_Boot_start.call(this);
     initializePlugin();
@@ -110,6 +111,11 @@
       if (!Number.isInteger(kittens) || kittens > 60 || kittens < 0) {
         console.error("setKittens: Invalid count:", kittens);
         $gameMessage.add("Kitten count must be 0-60.");
+        return false;
+      }
+      if (!$gameSystem.randomKittenVar) {
+        console.error("setKittens: randomKittenVar not set!");
+        $gameMessage.add("Error: Game not initialized.");
         return false;
       }
       try {
