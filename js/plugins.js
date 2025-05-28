@@ -3,6 +3,7 @@
 var $plugins =
 [
 {"name":"BlockchainPlugin","status":true,"description":"","parameters":{}},
+{"name":"KittenCollectPlugin","status":true,"description":"","parameters":{}},
 {"name":"titleAdjust","status":true,"description":"","parameters":{}},
 {"name":"ProximitySound","status":true,"description":"","parameters":{}},
 {"name":"TestPlugin","status":false,"description":"","parameters":{}},

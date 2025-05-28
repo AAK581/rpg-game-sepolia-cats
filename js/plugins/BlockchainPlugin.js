@@ -5,60 +5,121 @@
     return;
   }
   window.BlockchainPluginInitialized = true;
+  
   const scriptTag = document.createElement("script");
   scriptTag.id = scriptId;
   document.head.appendChild(scriptTag);
   let randomKittenVar = null;
 
   window.ensureBlockchainFunctions = function() {
-    if (!$gameSystem || typeof $gameSystem.getKittens !== "function" || !randomKittenVar) {
+    if (!$gameSystem || typeof $gameSystem.getKittens !== "function" || !$gameSystem.randomKittenVar) {
       console.warn("BlockchainPlugin: Reattaching functions or resetting...");
       if ($gameSystem) {
         attachFunctions();
-        if (!randomKittenVar) initializeKittenVar();
+        if (!$gameSystem.randomKittenVar) initializeKittenVar();
       }
     }
   };
 
   function initializeKittenVar() {
-    if (randomKittenVar) {
-      console.log("BlockchainPlugin: randomKittenVar already set:", randomKittenVar);
-      return;
+    if ($gameSystem && $gameSystem.randomKittenVar) {
+      randomKittenVar = $gameSystem.randomKittenVar;
+      console.log("BlockchainPlugin: randomKittenVar already set on $gameSystem:", randomKittenVar);
+      return randomKittenVar;
     }
+    
     if (!$gameSystem || !$gameVariables) {
       console.warn("BlockchainPlugin: $gameSystem or $gameVariables not ready, skipping.");
-      return;
+      return null;
     }
+    
     do {
       randomKittenVar = Math.floor(Math.random() * 100) + 1;
     } while ([2, 8, 9, 12, 18, 19, 21, 22, 23, 24, 25].includes(randomKittenVar));
+    
+    // IMPORTANT: Set it directly on the $gameSystem instance
     $gameSystem.randomKittenVar = randomKittenVar;
     $gameVariables.setValue(randomKittenVar, 0);
+    
     console.log("BlockchainPlugin: Set randomKittenVar:", randomKittenVar);
+    console.log("BlockchainPlugin: Verify $gameSystem.randomKittenVar:", $gameSystem.randomKittenVar);
+    
+    // FIXED: Process any pending kitten collections after randomKittenVar is set
+    if ($gameSystem._pendingKittenCollections > 0) {
+      console.log(`BlockchainPlugin: Processing ${$gameSystem._pendingKittenCollections} pending kitten collections`);
+      const pendingCount = $gameSystem._pendingKittenCollections;
+      $gameSystem._pendingKittenCollections = 0; // Reset before processing to avoid infinite loop
+      
+      // Process each pending collection
+      for (let i = 0; i < pendingCount; i++) {
+        setTimeout(() => {
+          if ($gameSystem.collectKitten) {
+            $gameSystem.collectKitten();
+          }
+        }, i * 10); // Small delay between each collection
+      }
+    }
+    
+    return randomKittenVar;
   }
+
+  // Extend Game_System - Make sure the property persists
+  const _Game_System_initialize = Game_System.prototype.initialize;
+  Game_System.prototype.initialize = function() {
+    _Game_System_initialize.call(this);
+    // Initialize pending collections counter
+    this._pendingKittenCollections = 0;
+    console.log("BlockchainPlugin: Game_System.initialize called");
+  };
+
+  // This is crucial - make sure randomKittenVar is saved/loaded properly
+  const _Game_System_makeEmpty = Game_System.prototype.makeEmpty;
+  Game_System.prototype.makeEmpty = function() {
+    _Game_System_makeEmpty.call(this);
+    this.randomKittenVar = null; // Initialize the property
+    this._pendingKittenCollections = 0; // Initialize pending collections
+  };
+
+  // Ensure randomKittenVar persists after loading
+  const _Game_System_onAfterLoad = Game_System.prototype.onAfterLoad;
+  Game_System.prototype.onAfterLoad = function() {
+    if (_Game_System_onAfterLoad) {
+      _Game_System_onAfterLoad.call(this);
+    }
+    console.log("BlockchainPlugin: onAfterLoad called, randomKittenVar:", this.randomKittenVar);
+    if (!this.randomKittenVar) {
+      initializeKittenVar();
+    } else {
+      randomKittenVar = this.randomKittenVar;
+    }
+  };
 
   function initializePlugin() {
     if (!window.DataManager || !DataManager.isDatabaseLoaded() || !$gameSystem || !$gameVariables) {
       console.warn("BlockchainPlugin: Not ready, retrying...");
       setTimeout(initializePlugin, 50);
-      return;
+      return false;
     }
-    initializeKittenVar();
-    if (!randomKittenVar) {
+    
+    // Initialize the kitten variable
+    const varId = initializeKittenVar();
+    if (!varId) {
       console.warn("BlockchainPlugin: randomKittenVar not set, retrying...");
       setTimeout(initializePlugin, 50);
       return false;
     }
+    
     console.log("BlockchainPlugin: randomKittenVar:", $gameSystem.randomKittenVar, "Value:", $gameVariables.value($gameSystem.randomKittenVar));
-    console.log("KittenPlugin: window.ethereum:", !!window.ethereum);
+    console.log("BlockchainPlugin: window.ethereum:", !!window.ethereum);
     attachFunctions();
     return true;
   }
 
-  // Hook Scene_Boot.prototype.create (earlier than start)
-  const _Scene_BootCreate = Scene_Boot.prototype.create;
+  // Hook Scene_Boot.prototype.create
+  const _Scene_Boot_create = Scene_Boot.prototype.create;
   Scene_Boot.prototype.create = function() {
-    _Scene_BootCreate.call(this);
+    _Scene_Boot_create.call(this);
+    console.log("BlockchainPlugin: Scene_Boot.create called");
     if (initializePlugin()) {
       window.ensureBlockchainFunctions();
     }
@@ -70,6 +131,7 @@
       setTimeout(attachFunctions, 50);
       return;
     }
+    
     const contractAddress = "0xFee91cdC10A1663d69d6891d8b6621987aACe2EF";
     const contractABI = [
       {"type":"function","name":"getKittens","inputs":[],"outputs":[{"name":"","type":"uint256"}],"stateMutability":"view"},
@@ -96,8 +158,8 @@
         const contract = new ethers.Contract(contractAddress, contractABI, provider);
         const kittens = await contract.getKittens({ from: userAddress });
         const kittenCount = Number(kittens);
-        if ($gameSystem.randomKittenVar) {
-          console.log("getKittens: Blockchain kittens:", kittenCount, "Local:", $gameVariables.value($gameSystem.randomKittenVar));
+        if (this.randomKittenVar) {
+          console.log("getKittens: Blockchain kittens:", kittenCount, "Local:", $gameVariables.value(this.randomKittenVar));
         }
         return kittenCount;
       } catch (error) {
@@ -114,7 +176,7 @@
         $gameMessage.add("Kitten count must be 0-60.");
         return false;
       }
-      if (!$gameSystem.randomKittenVar) {
+      if (!this.randomKittenVar) {
         console.error("setKittens: randomKittenVar not set!");
         $gameMessage.add("Error: Game not initialized.");
         return false;
@@ -134,8 +196,8 @@
         console.log("setKittens: Response:", data);
         if (data.error) throw new Error(data.error);
         if (!data.txHash) throw new Error("No transaction hash returned");
-        $gameVariables.setValue($gameSystem.randomKittenVar, kittens);
-        console.log("setKittens: Set varId", $gameSystem.randomKittenVar, "to", kittens);
+        $gameVariables.setValue(this.randomKittenVar, kittens);
+        console.log("setKittens: Set varId", this.randomKittenVar, "to", kittens);
         return true;
       } catch (error) {
         console.error("setKittens: Error:", error.message);
@@ -212,16 +274,8 @@
       setKittens: !!$gameSystem.setKittens,
       connectWallet: !!$gameSystem.connectWallet,
       fundContract: !!$gameSystem.fundContract,
-      openDApp: !!$gameSystem.openDApp
+      openDApp: !!$gameSystem.openDApp,
+      randomKittenVar: $gameSystem.randomKittenVar
     });
-
-    // Patch CanvasTextAlign
-    const _Sprite_TextAlign = Sprite.prototype._createTinter;
-    Sprite.prototype._createTinter = function() {
-      _Sprite_TextAlign.call(this);
-      if (this._context) {
-        this._context.textAlign = this._context.textAlign || "left";
-      }
-    };
   }
 })();
