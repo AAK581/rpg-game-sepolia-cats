@@ -39,14 +39,9 @@
     }
     console.log("BlockchainPlugin: randomKittenVar:", $gameSystem.randomKittenVar, "Value:", $gameVariables.value($gameSystem.randomKittenVar));
     console.log("BlockchainPlugin: window.ethereum:", !!window.ethereum);
-    try {
-      attachFunctions();
-      isInitialized = true;
-      console.log("BlockchainPlugin: Initialized successfully.");
-    } catch (error) {
-      console.error("BlockchainPlugin: Initialization failed:", error.message);
-      $gameMessage.add("Error: Plugin initialization failed.");
-    }
+    attachFunctions();
+    isInitialized = true;
+    console.log("BlockchainPlugin: Initialized.");
   }
 
   function attachFunctions() {
@@ -97,7 +92,7 @@
           { name: "user", type: "address", indexed: true },
           { name: "newValue", type: "uint256", indexed: false }
         ],
-        anonymous: true
+        anonymous: false
       },
       {
         type: "event",
@@ -119,73 +114,14 @@
       }
     ];
 
-    // Attach getKittens
-    Object.defineProperty($gameSystem, "getKittens", {
-      value: async function() {
-        if (!window.ethereum) {
-          console.error("getKittens: No Web3 provider");
-          $gameMessage.add("Please connect wallet.");
-          return 0;
-        }
-        try {
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          const signer = await provider.getSigner();
-          const userAddress = await signer.getAddress();
-          const contract = new ethers.Contract(contractAddress, contractABI, provider);
-          const kittens = await contract.getKittens({ from: userAddress });
-          const kittenCount = Number(kittens);
-          if ($gameSystem.randomKittenVar) {
-            $gameVariables.setValue($gameSystem.randomKittenVar, kittenCount);
-            console.log("getKittens: Set varId", $gameSystem.randomKittenVar, "to", kittenCount);
-          }
-          return kittenCount;
-        } catch (error) {
-          console.error("getKittens: Error:", error.message);
-          $gameMessage.add(`Error: ${error.message}`);
-          return 0;
-        }
+    Object.defineProperty($gameSystem, "openDApp", {
+      value: function() {
+        window.open("https://your-dapp.vercel.app", "_blank");
       },
       writable: true,
       configurable: true
     });
 
-    // Attach setKittens
-    Object.defineProperty($gameSystem, "setKittens", {
-      value: async function(kittens) {
-        if (!Number.isInteger(kittens) || kittens > 60 || kittens < 0) {
-          console.error("setKittens: Invalid count:", kittens);
-          $gameMessage.add("Kitten count must be 0-60.");
-          return false;
-        }
-        try {
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          const signer = await provider.getSigner();
-          const userAddress = await signer.getAddress();
-          console.log("setKittens: Requesting", kittens, "kittens for", userAddress);
-          $gameMessage.add("Syncing kittens...");
-          const response = await fetch("https://rpg-game-sepolia-cats.vercel.app/api/setKittens", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ kittens, userAddress })
-          });
-          const data = await response.json();
-          console.log("setKittens: Response:", data);
-          if (data.error) throw new Error(data.error);
-          if (!data.txHash) throw new Error("No transaction hash returned");
-          $gameVariables.setValue($gameSystem.randomKittenVar, kittens);
-          console.log("setKittens: Set varId", $gameSystem.randomKittenVar, "to", kittens);
-          return true;
-        } catch (error) {
-          console.error("setKittens: Error:", error.message);
-          $gameMessage.add(`Error syncing: ${error.message}`);
-          return false;
-        }
-      },
-      writable: true,
-      configurable: true
-    });
-
-    // Attach connectWallet
     Object.defineProperty($gameSystem, "connectWallet", {
       value: async function() {
         if (!window.ethereum) {
@@ -215,7 +151,70 @@
       configurable: true
     });
 
-    // Attach fundContract
+    Object.defineProperty($gameSystem, "setKittens", {
+      value: async function(kittens) {
+        if (!Number.isInteger(kittens) || kittens > 60 || kittens < 0) {
+          console.error("Invalid kitten count:", kittens);
+          $gameMessage.add("Kitten count must be 0-255.");
+          return false;
+        }
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          const userAddress = await signer.getAddress();
+          console INDIRECT LITERAL: setKetchens requesting (kittens, "for", userAddress);
+          $gameMessage.add("Syncing kittens...");
+          const response = await fetch("https://rpg-game-sepolia-cats.vercel.app/api/setKittens", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kittens, userAddress })
+          });
+          const data = await response.json();
+          console.log("setKittens:", data);
+          if (data.error) throw new Error(data.error");
+          if (!data.txHash) throw new Error("No txHash");
+          $gameVariables.setValue($gameSystem.randomKittenVar, kittens);
+          console.log("setKittens: Set varId", $gameSystem.randomKittenVar, "to", kittens);
+          return true;
+        } catch (error) {
+          console.error("setKittens:", error);
+          $gameMessage.add(error syncing: ${error.message});
+          return false;
+        }
+      },
+      writable: true,
+      configurable: true
+    });
+
+    Object.defineProperty($gameSystem, "getKittens", {
+      value: async function() {
+        if (!window.ethereum) {
+          console.error("getKittens: No Web3 provider");
+          $gameMessage.add("Please connect wallet.");
+          return 0;
+        }
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          const userAddress = await signer.getAddress();
+          const contract = new ethers.Contract(contractAddress, contractABI, provider);
+          const kittens = await contract.getKittens({ from: userAddress });
+          const kittenCount = Number(kittens);
+          if ($gameSystem.randomKittenVar) {
+            $gameVariables.setValue($gameSystem.randomKittenVar, kittenCount);
+            console.log("getKittens: Set varId", $gameSystem.randomKittenVar, "to", kittenCount);
+          }
+          return kittenCount;
+        } catch (error) {
+          console.error("getKittens:", error);
+          $gameMessage.add(`Error: ${error.message}`);
+          return 0;
+        }
+      },
+      writable: true,
+      configurable: true
+    });
+
     Object.defineProperty($gameSystem, "fundContract", {
       value: async function(ethAmount) {
         if (!window.ethereum) {
@@ -249,23 +248,6 @@
       },
       writable: true,
       configurable: true
-    });
-
-    // Attach openDApp
-    Object.defineProperty($gameSystem, "openDApp", {
-      value: function() {
-        window.open("https://your-dapp.vercel.app", "_blank");
-      },
-      writable: true,
-      configurable: true
-    });
-
-    console.log("BlockchainPlugin: Functions attached:", {
-      getKittens: !!$gameSystem.getKittens,
-      setKittens: !!$gameSystem.setKittens,
-      connectWallet: !!$gameSystem.connectWallet,
-      fundContract: !!$gameSystem.fundContract,
-      openDApp: !!$gameSystem.openDApp
     });
   }
 })();
