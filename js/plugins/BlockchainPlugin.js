@@ -1,26 +1,28 @@
 (function() {
   let isInitialized = false;
 
-  // Initialize core variables
-  const _DataManager_createGameObjects = DataManager.createGameObjects;
-  DataManager.createGameObjects = function() {
-    _DataManager_createGameObjects.call(this);
-    if (!isInitialized) initializeCore();
-  };
-
-  // Attach functions in Scene_Boot.create
-  const _Scene_Boot_create = Scene_Boot.prototype.create;
-  Scene_Boot.prototype.create = function() {
-    _Scene_Boot_create.call(this);
-    if (!isInitialized) attachFunctions();
-  };
-
-  function initializeCore() {
+  // Try attaching functions as early as possible
+  function tryInitialize() {
     if (!window.DataManager || !DataManager.isDatabaseLoaded() || !$gameSystem) {
       console.warn("BlockchainPlugin: Not ready, retrying...");
-      setTimeout(initializeCore, 100);
+      setTimeout(tryInitialize, 100);
       return;
     }
+    if (isInitialized) {
+      console.log("BlockchainPlugin: Already initialized.");
+      return;
+    }
+    initializePlugin();
+  }
+
+  // Hook into Game_System initialization
+  const _Game_System_initialize = Game_System.prototype.initialize;
+  Game_System.prototype.initialize = function() {
+    _Game_System_initialize.call(this);
+    tryInitialize();
+  };
+
+  function initializePlugin() {
     if (typeof ethers === "undefined") {
       console.error("BlockchainPlugin: Ethers.js not loaded!");
       $gameMessage.add("Error: Ethers.js failed to load.");
@@ -37,16 +39,8 @@
     }
     console.log("BlockchainPlugin: randomKittenVar:", $gameSystem.randomKittenVar, "Value:", $gameVariables.value($gameSystem.randomKittenVar));
     console.log("BlockchainPlugin: window.ethereum:", !!window.ethereum);
-    isInitialized = true;
-    console.log("BlockchainPlugin: Core initialized.");
-  }
-
-  function attachFunctions() {
-    if (!$gameSystem) {
-      console.warn("BlockchainPlugin: $gameSystem not ready, retrying...");
-      setTimeout(attachFunctions, 100);
-      return;
-    }
+    
+    // Attach functions
     const contractAddress = "0xFee91cdC10A1663d69d6891d8b6621987aACe2EF";
     const contractABI = [
       {"type":"function","name":"getKittens","inputs":[],"outputs":[{"name":"","type":"uint256"}],"stateMutability":"view"},
@@ -59,7 +53,7 @@
       {"type":"event","name":"DonationReceived","inputs":[{"name":"donor","type":"address","indexed":true},{"name":"amount","type":"uint256","indexed":false}],"anonymous":false}
     ];
 
-    $gameSystem.getKittens = $gameSystem.getKittens || async function() {
+    $gameSystem.getKittens = async function() {
       if (!window.ethereum) {
         console.error("getKittens: No Web3 provider");
         $gameMessage.add("Please connect wallet.");
@@ -84,7 +78,7 @@
       }
     };
 
-    $gameSystem.setKittens = $gameSystem.setKittens || async function(kittens) {
+    $gameSystem.setKittens = async function(kittens) {
       if (!Number.isInteger(kittens) || kittens > 60 || kittens < 0) {
         console.error("setKittens: Invalid count:", kittens);
         $gameMessage.add("Kitten count must be 0-60.");
@@ -115,7 +109,7 @@
       }
     };
 
-    $gameSystem.connectWallet = $gameSystem.connectWallet || async function() {
+    $gameSystem.connectWallet = async function() {
       if (!window.ethereum) {
         $gameVariables.setValue(12, 0);
         return;
@@ -140,7 +134,7 @@
       }
     };
 
-    $gameSystem.fundContract = $gameSystem.fundContract || async function(ethAmount) {
+    $gameSystem.fundContract = async function(ethAmount) {
       if (!window.ethereum) {
         $gameMessage.add("Please connect wallet.");
         return;
@@ -171,10 +165,11 @@
       }
     };
 
-    $gameSystem.openDApp = $gameSystem.openDApp || function() {
+    $gameSystem.openDApp = function() {
       window.open("https://your-dapp.vercel.app", "_blank");
     };
 
+    isInitialized = true;
     console.log("BlockchainPlugin: Functions attached:", {
       getKittens: !!$gameSystem.getKittens,
       setKittens: !!$gameSystem.setKittens,
@@ -183,4 +178,7 @@
       openDApp: !!$gameSystem.openDApp
     });
   }
+
+  // Start initialization
+  tryInitialize();
 })();
