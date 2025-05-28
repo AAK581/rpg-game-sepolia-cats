@@ -20,6 +20,10 @@ export default async function handler(req, res) {
     const wallet = new ethers.Wallet(process.env.GAME_PRIVATE_KEY, provider);
     const balance = await provider.getBalance(wallet.address);
     console.log("setKittens API: Wallet balance:", ethers.formatEther(balance), "ETH");
+    if (balance < ethers.parseEther("0.001")) {
+      console.error("setKittens API: Insufficient balance", ethers.formatEther(balance));
+      throw new Error("Insufficient server wallet balance");
+    }
     const contract = new ethers.Contract(
       "0xFee91cdC10A1663d69d6891d8b6621987aACe2EF",
       [
@@ -37,8 +41,8 @@ export default async function handler(req, res) {
       wallet
     );
     console.log("setKittens API: Sending tx", { kittens, userAddress });
-    const gasLimit = 150000;
-    const gasPrice = await provider.getGasPrice();
+    const gasLimit = 200000;
+    const gasPrice = (await provider.getGasPrice()) * 2n; // Double gas price
     const tx = await contract.setKittens(userAddress, kittens, { gasLimit, gasPrice });
     const receipt = await tx.wait();
     console.log("setKittens API: Success", { txHash: tx.hash });
