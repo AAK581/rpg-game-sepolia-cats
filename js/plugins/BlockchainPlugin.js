@@ -13,8 +13,10 @@
   window.ensureBlockchainFunctions = function() {
     if (!$gameSystem || typeof $gameSystem.getKittens !== "function" || !randomKittenVar) {
       console.warn("BlockchainPlugin: Reattaching functions or resetting...");
-      attachFunctions();
-      if (!randomKittenVar && $gameSystem) initializeKittenVar();
+      if ($gameSystem) {
+        attachFunctions();
+        if (!randomKittenVar) initializeKittenVar();
+      }
     }
   };
 
@@ -23,11 +25,10 @@
       console.log("BlockchainPlugin: randomKittenVar already set:", randomKittenVar);
       return;
     }
-    if (!$gameSystem) {
-      console.warn("BlockchainPlugin: $gameSystem not ready, skipping.");
+    if (!$gameSystem || !$gameVariables) {
+      console.warn("BlockchainPlugin: $gameSystem or $gameVariables not ready, skipping.");
       return;
     }
-
     do {
       randomKittenVar = Math.floor(Math.random() * 100) + 1;
     } while ([2, 8, 9, 12, 18, 19, 21, 22, 23, 24, 25].includes(randomKittenVar));
@@ -37,7 +38,7 @@
   }
 
   function initializePlugin() {
-    if (!window.DataManager || !DataManager.isDatabaseLoaded() || !$gameSystem) {
+    if (!window.DataManager || !DataManager.isDatabaseLoaded() || !$gameSystem || !$gameVariables) {
       console.warn("BlockchainPlugin: Not ready, retrying...");
       setTimeout(initializePlugin, 50);
       return;
@@ -54,8 +55,8 @@
     console.log("BlockchainPlugin: Initialized successfully.");
   }
 
-  // Initialize after Scene_Boot
-  const _Scene_Boot_start = Scene_Boot.start.prototype;
+  // Hook Scene_Boot.prototype.start
+  const _Scene_Boot_start = Scene_Boot.prototype.start;
   Scene_Boot.prototype.start = function() {
     _Scene_Boot_start.call(this);
     initializePlugin();
@@ -63,8 +64,8 @@
   };
 
   function attachFunctions() {
-    if (!$gameSystem) {
-      console.warn("BlockchainPlugin: $gameSystem not ready, retrying...");
+    if (!$gameSystem || !$gameVariables) {
+      console.warn("BlockchainPlugin: $gameSystem or $gameVariables not ready, retrying...");
       setTimeout(attachFunctions, 50);
       return;
     }
@@ -75,7 +76,7 @@
       {"type":"function","name":"fundContract","inputs":[],"outputs":[],"stateMutability":"payable"},
       {"type":"function","name":"rewardUser","inputs":[],"outputs":[],"stateMutability":"nonpayable"},
       {"type":"function","name":"owner","inputs":[],"outputs":[{"name":"","type":"address"}],"stateMutability":"view"},
-      {"type":"event","name":"KittensUpdated","inputs":[{"name":"user","type":"address","indexed":true},{"name":"newValue","type":"uint256","indexed":false}],"anonymous":true},
+      {"type":"event","name":"KittensUpdated","inputs":[{"name":"user","type":"address","indexed":true},{"name":"newValue","type":"uint256","indexed":false}],"anonymous":false},
       {"type":"event","name":"UserRewarded","inputs":[{"name":"user","type":"address","indexed":true},{"name":"amount","type":"uint256","indexed":false}],"anonymous":false},
       {"type":"event","name":"DonationReceived","inputs":[{"name":"donor","type":"address","indexed":true},{"name":"amount","type":"uint256","indexed":false}],"anonymous":false}
     ];
@@ -95,8 +96,7 @@
         const kittens = await contract.getKittens({ from: userAddress });
         const kittenCount = Number(kittens);
         if ($gameSystem.randomKittenVar) {
-          $gameVariables.setValue($gameSystem.randomKittenVar, kittenCount);
-          console.log("getKittens: Set varId", $gameSystem.randomKittenVar, "to", kittenCount);
+          console.log("getKittens: Blockchain kittens:", kittenCount, "Local:", $gameVariables.value($gameSystem.randomKittenVar));
         }
         return kittenCount;
       } catch (error) {
