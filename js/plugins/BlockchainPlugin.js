@@ -47,20 +47,21 @@
     if (!randomKittenVar) {
       console.warn("BlockchainPlugin: randomKittenVar not set, retrying...");
       setTimeout(initializePlugin, 50);
-      return;
+      return false;
     }
     console.log("BlockchainPlugin: randomKittenVar:", $gameSystem.randomKittenVar, "Value:", $gameVariables.value($gameSystem.randomKittenVar));
-    console.log("BlockchainPlugin: window.ethereum:", !!window.ethereum);
+    console.log("KittenPlugin: window.ethereum:", !!window.ethereum);
     attachFunctions();
-    console.log("BlockchainPlugin: Initialized successfully.");
+    return true;
   }
 
-  // Hook Scene_Boot.prototype.start
-  const _Scene_Boot_start = Scene_Boot.prototype.start;
-  Scene_Boot.prototype.start = function() {
-    _Scene_Boot_start.call(this);
-    initializePlugin();
-    window.ensureBlockchainFunctions();
+  // Hook Scene_Boot.prototype.create (earlier than start)
+  const _Scene_BootCreate = Scene_Boot.prototype.create;
+  Scene_Boot.prototype.create = function() {
+    _Scene_BootCreate.call(this);
+    if (initializePlugin()) {
+      window.ensureBlockchainFunctions();
+    }
   };
 
   function attachFunctions() {
