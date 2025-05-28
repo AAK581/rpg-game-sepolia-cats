@@ -2,6 +2,19 @@ const ethers = require("ethers");
 
 export default async function handler(req, res) {
   try {
+    console.log("setKittens API: Checking GAME_PRIVATE_KEY", { hasKey: !!process.env.GAME_PRIVATE_KEY });
+    if (!process.env.GAME_PRIVATE_KEY) {
+      console.error("setKittens API: GAME_PRIVATE_KEY missing");
+      return res.status(500).json({ error: "Missing GAME_PRIVATE_KEY" });
+    }
+    let wallet;
+    try {
+      wallet = new ethers.Wallet(process.env.GAME_PRIVATE_KEY);
+      console.log("setKittens API: Wallet address:", wallet.address);
+    } catch (error) {
+      console.error("setKittens API: Invalid GAME_PRIVATE_KEY", error.message);
+      return res.status(500).json({ error: "Invalid GAME_PRIVATE_KEY format" });
+    }
     if (req.method !== "POST") {
       console.error("setKittens API: Method not allowed", req.method);
       return res.status(405).json({ error: "Method not allowed" });
@@ -11,19 +24,10 @@ export default async function handler(req, res) {
       console.error("setKittens API: Invalid input", { kittens, userAddress });
       return res.status(400).json({ error: "Invalid input" });
     }
-
-    console.log("setKittens API: Checking GAME_PRIVATE_KEY", { hasKey: !!process.env.GAME_PRIVATE_KEY });
-    if (!process.env.GAME_PRIVATE_KEY) {
-      console.error("setKittens API: GAME_PRIVATE_KEY missing");
-      return res.status(500).json({ error: "Missing GAME_PRIVATE_KEY" });
-    }
-
     const provider = new ethers.JsonRpcProvider("https://sepolia-rpc.scroll.io");
-    const wallet = new ethers.Wallet(process.env.GAME_PRIVATE_KEY, provider);
-    console.log("setKittens API: Wallet address:", wallet.address);
+    const signer = wallet.connect(provider);
     const balance = await provider.getBalance(wallet.address);
     console.log("setKittens API: Balance:", ethers.formatEther(balance), "ETH");
-
     const contract = new ethers.Contract(
       "0xFee91cdC10A1663d69d6891d8b6621987aACe2EF",
       [{
@@ -36,9 +40,8 @@ export default async function handler(req, res) {
         outputs: [],
         stateMutability: "nonpayable"
       }],
-      wallet
+      signer
     );
-
     console.log("setKittens API: Sending tx", { kittens, userAddress });
     const tx = await contract.setKittens(userAddress, kittens, { gasLimit: 300000 });
     const receipt = await tx.wait();
