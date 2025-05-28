@@ -1,7 +1,6 @@
 (function() {
   let isInitialized = false;
 
-  // Initialize on DataManager setup
   const _DataManager_createGameObjects = DataManager.createGameObjects;
   DataManager.createGameObjects = function() {
     _DataManager_createGameObjects.call(this);
@@ -154,15 +153,15 @@
     Object.defineProperty($gameSystem, "setKittens", {
       value: async function(kittens) {
         if (!Number.isInteger(kittens) || kittens > 60 || kittens < 0) {
-          console.error("Invalid kitten count:", kittens);
-          $gameMessage.add("Kitten count must be 0-255.");
+          console.error("setKittens: Invalid count:", kittens);
+          $gameMessage.add("Kitten count must be 0-60.");
           return false;
         }
         try {
           const provider = new ethers.BrowserProvider(window.ethereum);
           const signer = await provider.getSigner();
           const userAddress = await signer.getAddress();
-          console INDIRECT LITERAL: setKetchens requesting (kittens, "for", userAddress);
+          console.log("setKittens: Requesting", kittens, "kittens for", userAddress);
           $gameMessage.add("Syncing kittens...");
           const response = await fetch("https://rpg-game-sepolia-cats.vercel.app/api/setKittens", {
             method: "POST",
@@ -170,15 +169,15 @@
             body: JSON.stringify({ kittens, userAddress })
           });
           const data = await response.json();
-          console.log("setKittens:", data);
-          if (data.error) throw new Error(data.error");
-          if (!data.txHash) throw new Error("No txHash");
+          console.log("setKittens: Response:", data);
+          if (data.error) throw new Error(data.error);
+          if (!data.txHash) throw new Error("No transaction hash returned");
           $gameVariables.setValue($gameSystem.randomKittenVar, kittens);
           console.log("setKittens: Set varId", $gameSystem.randomKittenVar, "to", kittens);
           return true;
         } catch (error) {
-          console.error("setKittens:", error);
-          $gameMessage.add(error syncing: ${error.message});
+          console.error("setKittens: Error:", error.message);
+          $gameMessage.add(`Error syncing: ${error.message}`);
           return false;
         }
       },
@@ -206,7 +205,7 @@
           }
           return kittenCount;
         } catch (error) {
-          console.error("getKittens:", error);
+          console.error("getKittens: Error:", error.message);
           $gameMessage.add(`Error: ${error.message}`);
           return 0;
         }
