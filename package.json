@@ -8,8 +8,5 @@
         "height": 624,
         "position": "center",
         "icon": "icon/icon.png"
-    },
-    "dependencies": {
-        "ethers": "^6.14.3"
     }
 }
