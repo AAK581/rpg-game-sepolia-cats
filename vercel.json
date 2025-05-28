@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "/**/*", "use": "@vercel/static", "config": { "includeFiles": ["index.html", "js/**", "audio/**", "css/**", "data/**", "effects/**", "fonts/**", "img/**", "locales/**", "icon/**"] } },
+    { "src": "api/setKittens.js", "use": "@vercel/node" }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/setKittens.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

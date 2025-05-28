@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="icon" href="icon/oiia.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" href="icon/icon.png">
+    <link rel="stylesheet" type="text/css" href="css/game.css">
+    <title>Sepolia Cats</title>
+    <style>
+        body {
+            background-color: #627eea;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        canvas {
+            width: 80vw !important; /* Adjust to 90% of viewport width */
+            height: auto !important; /* Maintain aspect ratio */
+            max-width: 1080px; /* Cap max size */
+        }
+    </style>
+</head>
+<body style="background-color: #627eea">
+    <script src="js/libs/pixi.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+    <script>
+        if (typeof ethers === "undefined") {
+            var script = document.createElement("script");
+            script.src = "https://unpkg.com/ethers@6.13.2/dist/ethers.umd.min.js";
+            document.head.appendChild(script);
+        }
+    </script>
+    <script type="text/javascript" src="js/rmmz_core.js"></script>
+    <script type="text/javascript" src="js/rmmz_managers.js"></script>
+    <script type="text/javascript" src="js/rmmz_objects.js"></script>
+    <script type="text/javascript" src="js/rmmz_scenes.js"></script>
+    <script type="text/javascript" src="js/rmmz_sprites.js"></script>
+    <script type="text/javascript" src="js/rmmz_windows.js"></script>
+    <script type="text/javascript" src="js/plugins.js"></script>
+    <script type="text/javascript" src="js/main.js"></script>
+</body>
+</html>
