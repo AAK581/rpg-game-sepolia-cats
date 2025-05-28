@@ -1,16 +1,11 @@
 (function() {
+  let isInitialized = false;
+
   // Initialize on DataManager setup
   const _DataManager_createGameObjects = DataManager.createGameObjects;
   DataManager.createGameObjects = function() {
     _DataManager_createGameObjects.call(this);
-    initializePlugin();
-  };
-
-  // Fallback on Scene_Boot
-  const _Scene_Boot_start = Scene_Boot.prototype.start;
-  Scene_Boot.prototype.start = function() {
-    initializePlugin();
-    _Scene_Boot_start.call(this);
+    if (!isInitialized) initializePlugin();
   };
 
   function initializePlugin() {
@@ -22,6 +17,10 @@
     if (!$gameSystem) {
       console.warn("BlockchainPlugin: $gameSystem not ready, retrying...");
       setTimeout(initializePlugin, 100);
+      return;
+    }
+    if (isInitialized) {
+      console.log("BlockchainPlugin: Already initialized, skipping.");
       return;
     }
     if (typeof ethers === "undefined") {
@@ -41,6 +40,7 @@
     console.log("BlockchainPlugin: randomKittenVar:", $gameSystem.randomKittenVar, "Value:", $gameVariables.value($gameSystem.randomKittenVar));
     console.log("BlockchainPlugin: window.ethereum:", !!window.ethereum);
     attachFunctions();
+    isInitialized = true;
     console.log("BlockchainPlugin: Initialized.");
   }
 
@@ -154,15 +154,15 @@
     Object.defineProperty($gameSystem, "setKittens", {
       value: async function(kittens) {
         if (!Number.isInteger(kittens) || kittens > 60 || kittens < 0) {
-          console.error("setKittens: Invalid count:", kittens);
-          $gameMessage.add("Kitten count must be 0-60.");
+          console.error("Invalid kitten count:", kittens);
+          $gameMessage.add("Kitten count must be 0-255.");
           return false;
         }
         try {
           const provider = new ethers.BrowserProvider(window.ethereum);
           const signer = await provider.getSigner();
           const userAddress = await signer.getAddress();
-          console.log("setKittens: Requesting", kittens, "kittens for", userAddress);
+          console INDIRECT LITERAL: setKetchens requesting (kittens, "for", userAddress);
           $gameMessage.add("Syncing kittens...");
           const response = await fetch("https://rpg-game-sepolia-cats.vercel.app/api/setKittens", {
             method: "POST",
@@ -170,15 +170,15 @@
             body: JSON.stringify({ kittens, userAddress })
           });
           const data = await response.json();
-          console.log("setKittens: Response:", data);
-          if (data.error) throw new Error(data.error);
+          console.log("setKittens:", data);
+          if (data.error) throw new Error(data.error");
           if (!data.txHash) throw new Error("No txHash");
           $gameVariables.setValue($gameSystem.randomKittenVar, kittens);
           console.log("setKittens: Set varId", $gameSystem.randomKittenVar, "to", kittens);
           return true;
         } catch (error) {
           console.error("setKittens:", error);
-          $gameMessage.add(`Error syncing: ${error.message}`);
+          $gameMessage.add(error syncing: ${error.message});
           return false;
         }
       },
