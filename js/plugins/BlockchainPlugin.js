@@ -14,13 +14,17 @@
     if (!$gameSystem || typeof $gameSystem.getKittens !== "function" || !randomKittenVar) {
       console.warn("BlockchainPlugin: Reattaching functions or resetting randomKittenVar...");
       attachFunctions();
-      if (!randomKittenVar) initializeKittenVar();
+      if (!randomKittenVar && $gameSystem) initializeKittenVar();
     }
   };
 
   function initializeKittenVar() {
     if (randomKittenVar) {
       console.log("BlockchainPlugin: randomKittenVar already set:", randomKittenVar);
+      return;
+    }
+    if (!$gameSystem) {
+      console.warn("BlockchainPlugin: $gameSystem not ready, skipping randomKittenVar init.");
       return;
     }
     do {
@@ -31,18 +35,6 @@
     console.log("BlockchainPlugin: Set randomKittenVar:", randomKittenVar);
   }
 
-  const _Game_System_initialize = Game_System.prototype.initialize;
-  Game_System.prototype.initialize = function() {
-    _Game_System_initialize.call(this);
-    initializePlugin();
-  };
-
-  const _Scene_Boot_create = Scene_Boot.prototype.create;
-  Scene_Boot.prototype.create = function() {
-    _Scene_Boot_create.call(this);
-    window.ensureBlockchainFunctions();
-  };
-
   function initializePlugin() {
     if (!window.DataManager || !DataManager.isDatabaseLoaded() || !$gameSystem) {
       console.warn("BlockchainPlugin: Not ready, retrying...");
@@ -50,11 +42,24 @@
       return;
     }
     initializeKittenVar();
+    if (!randomKittenVar) {
+      console.warn("BlockchainPlugin: Failed to initialize randomKittenVar, retrying...");
+      setTimeout(initializePlugin, 50);
+      return;
+    }
     console.log("BlockchainPlugin: randomKittenVar:", $gameSystem.randomKittenVar, "Value:", $gameVariables.value($gameSystem.randomKittenVar));
     console.log("BlockchainPlugin: window.ethereum:", !!window.ethereum);
     attachFunctions();
     console.log("BlockchainPlugin: Initialized successfully.");
   }
+
+  // Delay initialization until Scene_Boot is ready
+  const _Scene_Boot_start = Scene_Boot.prototype.start;
+  Scene_Boot.prototype.start = function() {
+    _Scene_Boot_start.call(this);
+    initializePlugin();
+    window.ensureBlockchainFunctions();
+  };
 
   function attachFunctions() {
     if (!$gameSystem) {
@@ -202,12 +207,14 @@
       fundContract: !!$gameSystem.fundContract,
       openDApp: !!$gameSystem.openDApp
     });
+
+    // Patch CanvasTextAlign
+    const _Sprite_TextAlign = Sprite.prototype._createTinter;
+    Sprite.prototype._createTinter = function() {
+      _Sprite_TextAlign.call(this);
+      if (this._context) {
+        this._context.textAlign = this._context.textAlign || "left";
+      }
+    };
   }
-  const _Sprite_TextAlign = Sprite.prototype._createTinter;
-  Sprite.prototype._createTinter = function() {
-    _Sprite_TextAlign.call(this);
-    if (this._context) {
-      this._context.textAlign = this._context.textAlign || "left";
-    }
-  };
 })();
