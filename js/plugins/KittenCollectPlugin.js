@@ -73,18 +73,18 @@
       $gameVariables.setValue(varId, newKittens);
       console.log("KittenCollectPlugin: Incremented varId", varId, "from", currentKittens, "to", newKittens);
       
-      $gameMessage.add(`Collected a kitten! Total: ${newKittens}`);
+      //$gameMessage.add(`Collected a kitten! Total: ${newKittens}`);
       pendingCollect = false;
       
       // Optional: Auto-sync to blockchain if connected
-      if (typeof $gameSystem.setKittens === "function" && $gameVariables.value(12) === 1) {
-        console.log("KittenCollectPlugin: Auto-syncing to blockchain");
-        setTimeout(() => {
-          $gameSystem.setKittens(newKittens).catch(error => {
-            console.error("KittenCollectPlugin: Auto-sync failed:", error);
-          });
-        }, 1000);
-      }
+    //   if (typeof $gameSystem.setKittens === "function" && $gameVariables.value(12) === 1) {
+    //     console.log("KittenCollectPlugin: Auto-syncing to blockchain");
+    //     setTimeout(() => {
+    //       $gameSystem.setKittens(newKittens).catch(error => {
+    //         console.error("KittenCollectPlugin: Auto-sync failed:", error);
+    //       });
+    //     }, 1000);
+    //   }
     } catch (error) {
       console.error("KittenCollectPlugin: Error collecting kitten:", error);
       $gameMessage.add("Error collecting kitten.");
@@ -148,19 +148,19 @@
     const varId = this.randomKittenVar || window.BlockchainPlugin?.randomKittenVar;
     if (!varId) {
       console.error("KittenCollectPlugin: No variable ID available for setKittenCount");
-      $gameMessage.add("Error: Cannot set kitten count.");
+      //$gameMessage.add("Error: Cannot set kitten count.");
       return false;
     }
     
     if (!Number.isInteger(count) || count < 0) {
       console.error("KittenCollectPlugin: Invalid kitten count:", count);
-      $gameMessage.add("Invalid kitten count.");
+      //$gameMessage.add("Invalid kitten count.");
       return false;
     }
     
     $gameVariables.setValue(varId, count);
     console.log("KittenCollectPlugin: Set kitten count to", count);
-    $gameMessage.add(`Kitten count set to: ${count}`);
+    //$gameMessage.add(`Kitten count set to: ${count}`);
     return true;
   };
 

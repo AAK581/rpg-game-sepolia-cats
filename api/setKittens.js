@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     const balance = await provider.getBalance(wallet.address);
     console.log("setKittens API: Balance:", ethers.formatEther(balance), "ETH");
     const contract = new ethers.Contract(
-      "0xFee91cdC10A1663d69d6891d8b6621987aACe2EF",
+      "0xEDDe9fc8ca8668046f9EAf9b64FDc94620518E26",
       [{
         type: "function",
         name: "setKittens",
