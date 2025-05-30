@@ -1,7 +1,7 @@
 (function() {
   const pluginName = "KittenCollectPlugin";
   if (window[pluginName]) {
-    console.log("KittenCollectPlugin: Already initialized");
+    //console.log("KittenCollectPlugin: Already initialized");
     return;
   }
   window[pluginName] = true;
@@ -21,7 +21,7 @@
 
   // Collect kitten method with better error handling
   Game_System.prototype.collectKitten = function() {
-    console.log("KittenCollectPlugin: collectKitten called");
+    //console.log("KittenCollectPlugin: collectKitten called");
     console.log("KittenCollectPlugin: randomKittenVar status:", {
       window: window.BlockchainPlugin?.randomKittenVar,
       gameSystem: this.randomKittenVar,
@@ -36,12 +36,12 @@
 
     // Check if we have the required variable ID
     if (!window.BlockchainPlugin?.randomKittenVar && !this.randomKittenVar) {
-      console.error("KittenCollectPlugin: randomKittenVar not available");
+      //console.error("KittenCollectPlugin: randomKittenVar not available");
       $gameMessage.add("Error: Game not properly initialized.");
       
       // Store pending collection for later processing
       if (window.BlockchainPlugin) {
-        console.log("KittenCollectPlugin: Storing pending collection");
+        //console.log("KittenCollectPlugin: Storing pending collection");
         window.BlockchainPlugin.pendingKittenCollections = window.BlockchainPlugin.pendingKittenCollections || [];
         window.BlockchainPlugin.pendingKittenCollections.push(true);
         pendingCollect = true;
@@ -52,7 +52,7 @@
     // Ensure we have the variable ID
     const varId = this.randomKittenVar || window.BlockchainPlugin.randomKittenVar;
     if (!varId) {
-      console.error("KittenCollectPlugin: No valid variable ID found");
+      //console.error("KittenCollectPlugin: No valid variable ID found");
       $gameMessage.add("Error: Cannot determine kitten storage variable.");
       return;
     }
@@ -71,7 +71,7 @@
       const newKittens = currentKittens + 1;
       
       $gameVariables.setValue(varId, newKittens);
-      console.log("KittenCollectPlugin: Incremented varId", varId, "from", currentKittens, "to", newKittens);
+      //console.log("KittenCollectPlugin: Incremented varId", varId, "from", currentKittens, "to", newKittens);
       
       //$gameMessage.add(`Collected a kitten! Total: ${newKittens}`);
       pendingCollect = false;
@@ -101,7 +101,7 @@
       initializationAttempts++;
       
       if (window.BlockchainPlugin?.randomKittenVar || $gameSystem.randomKittenVar) {
-        console.log("KittenCollectPlugin: Processing pending collection (attempt", initializationAttempts, ")");
+        //console.log("KittenCollectPlugin: Processing pending collection (attempt", initializationAttempts, ")");
         $gameSystem.collectKitten();
       } else if (initializationAttempts >= maxInitAttempts) {
         console.error("KittenCollectPlugin: Failed to initialize after", maxInitAttempts, "attempts");
@@ -118,7 +118,7 @@
     
     // Additional check for blockchain pending collections
     if (window.BlockchainPlugin?.pendingKittenCollections?.length > 0) {
-      console.log("KittenCollectPlugin: Processing blockchain pending collections");
+      //console.log("KittenCollectPlugin: Processing blockchain pending collections");
       const pendingCount = window.BlockchainPlugin.pendingKittenCollections.length;
       
       // Clear the pending collections first to avoid infinite loops
@@ -133,41 +133,9 @@
     }
   };
 
-  // Utility function to get current kitten count
-  Game_System.prototype.getKittenCount = function() {
-    const varId = this.randomKittenVar || window.BlockchainPlugin?.randomKittenVar;
-    if (!varId) {
-      console.warn("KittenCollectPlugin: No variable ID available for getKittenCount");
-      return 0;
-    }
-    return $gameVariables.value(varId);
-  };
 
-  // Utility function to set kitten count directly
-  Game_System.prototype.setKittenCount = function(count) {
-    const varId = this.randomKittenVar || window.BlockchainPlugin?.randomKittenVar;
-    if (!varId) {
-      console.error("KittenCollectPlugin: No variable ID available for setKittenCount");
-      //$gameMessage.add("Error: Cannot set kitten count.");
-      return false;
-    }
-    
-    if (!Number.isInteger(count) || count < 0) {
-      console.error("KittenCollectPlugin: Invalid kitten count:", count);
-      //$gameMessage.add("Invalid kitten count.");
-      return false;
-    }
-    
-    $gameVariables.setValue(varId, count);
-    console.log("KittenCollectPlugin: Set kitten count to", count);
-    //$gameMessage.add(`Kitten count set to: ${count}`);
-    return true;
-  };
-
-  console.log("KittenCollectPlugin: Plugin loaded successfully");
-  console.log("KittenCollectPlugin: Available methods:", {
-    collectKitten: !!Game_System.prototype.collectKitten,
-    getKittenCount: !!Game_System.prototype.getKittenCount,
-    setKittenCount: !!Game_System.prototype.setKittenCount
-  });
+//   console.log("KittenCollectPlugin: Plugin loaded successfully");
+//   console.log("KittenCollectPlugin: Available methods:", {
+//     collectKitten: !!Game_System.prototype.collectKitten,
+//   });
 })();
