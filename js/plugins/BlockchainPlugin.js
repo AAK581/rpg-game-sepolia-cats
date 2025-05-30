@@ -511,46 +511,68 @@
     // Set kittens on blockchain
     $gameSystem.setKittens = async function(kittens) {
       if (!Number.isInteger(kittens) || kittens > 60 || kittens < 0) {
-        console.error("setKittens: Invalid count:", kittens);
-        $gameMessage.add("Kitten count must be 0-60.");
+        console.error('setKittens: Invalid count:', kittens);
+        $gameMessage.add('Kitten count must be 0-60.');
         return false;
       }
       if (!window.BlockchainPlugin.randomKittenVar) {
-        console.error("setKittens: randomKittenVar not set!");
-        $gameMessage.add("Error: Game not initialized properly.");
+        console.error('setKittens: randomKittenVar not set!');
+        $gameMessage.add('Error: Game not initialized properly.');
         return false;
       }
       if (!window.ethereum) {
-        console.error("setKittens: No Web3 provider");
-        $gameMessage.add("Please connect wallet first.");
+        console.error('setKittens: No Web3 provider');
+        $gameMessage.add('Please connect wallet first.');
         return false;
       }
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
         const userAddress = await signer.getAddress();
-        console.log("setKittens: Setting", kittens, "kittens for", userAddress);
-        $gameMessage.add("Syncing kittens to blockchain...");
-        const response = await fetch("https://rpg-game-sepolia-cats.vercel.app/api/setKittens", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kittens, userAddress })
+        const contract = new ethers.Contract('0xEDDe9fc8ca8668046f9EAf9b64FDc94620518E26', contractABI, provider);
+
+        // Fetch on-chain kittens
+        const currentOnChainKittens = Number(await contract.getKittens({ from: userAddress }));
+        if (currentOnChainKittens >= 60) {
+          console.log('setKittens: Max 60 kittens reached');
+          $gameMessage.add('You have 60 kittens! Redeem rewards to collect more.');
+          $gameVariables.setValue(window.BlockchainPlugin.randomKittenVar, 0); // Reset local
+          return false;
+        }
+
+        // Cap kittens to 60
+        const maxNewKittens = Math.min(kittens, 60 - currentOnChainKittens);
+        if (maxNewKittens < kittens) {
+          console.log('setKittens: Capped kittens to', maxNewKittens, 'to stay under 60');
+          $gameMessage.add(`Kitten count capped at ${maxNewKittens} to stay under 60.`);
+        }
+
+        console.log('setKittens: Setting', maxNewKittens, 'kittens for', userAddress);
+        $gameMessage.add('Syncing kittens to blockchain...');
+        const response = await fetch('https://rpg-game-sepolia-cats.vercel.app/api/setKittens', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kittens: maxNewKittens, userAddress })
         });
         const data = await response.json();
-        console.log("setKittens: API Response:", data);
+        console.log('setKittens: API Response:', data, 'Status:', response.status);
+        if (!response.ok) throw new Error(`API error: ${data.error || response.statusText}`);
         if (data.error) throw new Error(data.error);
-        if (!data.txHash) throw new Error("No transaction hash returned");
-        $gameVariables.setValue(window.BlockchainPlugin.randomKittenVar, kittens);
-        console.log("setKittens: Updated local varId", window.BlockchainPlugin.randomKittenVar, "to", kittens);
-        $gameMessage.add("Kittens synced successfully!");
+        if (!data.txHash) throw new Error('No transaction hash returned');
+
+        // Subtract synced amount from local kittens
+        const currentLocalKittens = $gameVariables.value(window.BlockchainPlugin.randomKittenVar);
+        const newLocalKittens = Math.max(0, currentLocalKittens - maxNewKittens);
+        $gameVariables.setValue(window.BlockchainPlugin.randomKittenVar, newLocalKittens);
+        console.log('setKittens: Updated local varId', window.BlockchainPlugin.randomKittenVar, 'to', newLocalKittens, 'after syncing', maxNewKittens);
+        $gameMessage.add(`Synced ${maxNewKittens} kittens successfully! Total on-chain: ${currentOnChainKittens + maxNewKittens}`);
         return true;
       } catch (error) {
-        console.error("setKittens: Error:", error.message);
+        console.error('setKittens: Error:', error.message);
         $gameMessage.add(`Error syncing kittens: ${error.message}`);
         return false;
       }
     };
-
     // Connect wallet
     $gameSystem.connectWallet = async function() {
       if (!window.ethereum) {

@@ -76,7 +76,7 @@
       //$gameMessage.add(`Collected a kitten! Total: ${newKittens}`);
       pendingCollect = false;
       
-      // Optional: Auto-sync to blockchain if connected
+
     //   if (typeof $gameSystem.setKittens === "function" && $gameVariables.value(12) === 1) {
     //     console.log("KittenCollectPlugin: Auto-syncing to blockchain");
     //     setTimeout(() => {
